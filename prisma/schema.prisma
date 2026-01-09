@@ -1,0 +1,49 @@
+// Prisma Schema - Định nghĩa database schema và models
+// File này mô tả cấu trúc database, relationships và các generator settings
+
+// Generator: Tạo Prisma Client code
+generator client {
+  provider     = "prisma-client"  // Sử dụng Prisma Client generator
+  output       = "../src/generated/prisma"  // Output directory cho generated code
+  moduleFormat = "commonjs"  // Format module: CommonJS (phù hợp với TypeScript config)
+}
+
+// Datasource: Cấu hình database connection
+datasource db {
+  provider = "mysql"  // Sử dụng MySQL/MariaDB database
+}
+
+// Model User: Bảng lưu thông tin người dùng
+model User {
+  id        String   @id @default(uuid())  // Primary key, tự động tạo UUID
+  email     String   @unique  // Email duy nhất, dùng để đăng nhập
+  password  String  // Password đã được hash bằng bcrypt
+  name      String?  // Tên người dùng (optional)
+  role      Role     @default(USER)  // Vai trò: USER hoặc ADMIN, mặc định là USER
+
+  // Relationship: Một user có nhiều refresh tokens
+  refreshTokens RefreshToken[]
+
+  createdAt DateTime @default(now())  // Thời gian tạo, tự động set khi tạo record
+  updatedAt DateTime @updatedAt  // Thời gian cập nhật, tự động update khi modify
+}
+
+// Model RefreshToken: Bảng lưu refresh tokens để quản lý session
+model RefreshToken {
+  id        String   @id @default(uuid())  // Primary key
+  tokenHash String  // Hash của refresh token (SHA256) để bảo mật
+  userId    String  // Foreign key trỏ đến User
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)  // Relationship với User, xóa cascade khi user bị xóa
+
+  ip        String?  // IP address của client (optional, để tracking)
+  userAgent String?  // User agent của client (optional, để tracking)
+
+  expiresAt DateTime  // Thời gian hết hạn của token
+  createdAt DateTime @default(now())  // Thời gian tạo token
+}
+
+// Enum Role: Định nghĩa các vai trò trong hệ thống
+enum Role {
+  USER   // Người dùng thông thường
+  ADMIN  // Quản trị viên
+}
