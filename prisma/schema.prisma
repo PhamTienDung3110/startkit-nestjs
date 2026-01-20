@@ -1,49 +1,450 @@
-// Prisma Schema - Định nghĩa database schema và models
-// File này mô tả cấu trúc database, relationships và các generator settings
+// Prisma Schema - Personal Finance (MySQL)
+// File này mô tả cấu trúc database, relationships, enums và các ràng buộc index/unique
+// Mục tiêu: Quản lý tài chính cá nhân gồm Wallet, Category, Transaction, Loan/Debt + Auth (User/RefreshToken)
+// Lưu ý nghiệp vụ quan trọng:
+// - Dùng currentBalance để hiển thị nhanh => khi create/update/delete Transaction phải update số dư ví trong DB transaction.
+// - Transaction gồm header + entries để support income/expense (1 entry) và transfer (2 entries: out/in).
+// - LoanPayment bắt buộc tạo Transaction và trừ/cộng ví tương ứng.
 
-// Generator: Tạo Prisma Client code
+// =========================
+// GENERATOR: Tạo Prisma Client
+// =========================
 generator client {
-  provider     = "prisma-client"  // Sử dụng Prisma Client generator
-  output       = "../src/generated/prisma"  // Output directory cho generated code
-  moduleFormat = "commonjs"  // Format module: CommonJS (phù hợp với TypeScript config)
+  provider     = "prisma-client"           // Prisma Client generator (JS/TS)
+  output       = "../src/generated/prisma" // Thư mục output cho Prisma Client generate
+  moduleFormat = "commonjs"                // CommonJS phù hợp NestJS config phổ biến
 }
 
-// Datasource: Cấu hình database connection
+// =========================
+// DATASOURCE: Cấu hình database connection
+// =========================
 datasource db {
-  provider = "mysql"  // Sử dụng MySQL/MariaDB database
+  provider = "mysql"               // MySQL/MariaDB
 }
 
-// Model User: Bảng lưu thông tin người dùng
-model User {
-  id        String   @id @default(uuid())  // Primary key, tự động tạo UUID
-  email     String   @unique  // Email duy nhất, dùng để đăng nhập
-  password  String  // Password đã được hash bằng bcrypt
-  name      String?  // Tên người dùng (optional)
-  role      Role     @default(USER)  // Vai trò: USER hoặc ADMIN, mặc định là USER
+// =========================
+// ENUMS - Các kiểu dữ liệu dạng lựa chọn (tránh sai chính tả, dễ validate)
+// =========================
 
-  // Relationship: Một user có nhiều refresh tokens
+// Role: phân quyền user/admin (authorization)
+enum Role {
+  USER
+  ADMIN
+}
+
+// WalletType: loại ví (tuỳ UI/logic hiển thị)
+enum WalletType {
+  cash    // tiền mặt
+  bank    // tài khoản ngân hàng
+  ewallet // ví điện tử
+  credit  // thẻ tín dụng / công nợ thẻ
+}
+
+// CategoryType: category phân theo thu/chi
+enum CategoryType {
+  income  // thu
+  expense // chi
+}
+
+// TransactionType: loại giao dịch
+enum TransactionType {
+  income   // thu tiền vào ví
+  expense  // chi tiền ra khỏi ví
+  transfer // chuyển tiền giữa 2 ví (không cần phí chuyển theo yêu cầu)
+}
+
+// EntryDirection: chiều dòng tiền trong entry
+enum EntryDirection {
+  in  // tiền vào ví
+  out // tiền ra khỏi ví
+}
+
+// LoanKind: 1 model dùng cho cả nợ và cho vay
+enum LoanKind {
+  you_owe      // bạn nợ người khác
+  owed_to_you  // người khác nợ bạn
+}
+
+// LoanStatus: trạng thái khoản nợ/vay
+enum LoanStatus {
+  open   // còn dư nợ (outstandingAmount > 0)
+  closed // đã tất toán (outstandingAmount = 0)
+}
+
+// =========================
+// AUTH MODELS
+// =========================
+
+// User: thông tin người dùng đăng nhập hệ thống
+model User {
+  // Primary key dạng UUID (string)
+  id       String @id @default(uuid())
+
+  // Email duy nhất dùng login
+  email    String @unique
+
+  // Password đã hash (bcrypt/argon2 tuỳ bạn)
+  password String
+
+  // Tên hiển thị (optional)
+  name     String?
+
+  // Vai trò phân quyền
+  role     Role   @default(USER)
+
+  // 1 user có nhiều refresh tokens (quản lý session)
   refreshTokens RefreshToken[]
 
-  createdAt DateTime @default(now())  // Thời gian tạo, tự động set khi tạo record
-  updatedAt DateTime @updatedAt  // Thời gian cập nhật, tự động update khi modify
+  // =========================
+  // FINANCE RELATIONS
+  // =========================
+  // 1 user có nhiều ví
+  wallets      Wallet[]
+
+  // 1 user có nhiều category (bao gồm category copy từ template)
+  categories   Category[]
+
+  // 1 user có nhiều giao dịch
+  transactions Transaction[]
+
+  // 1 user có nhiều khoản nợ/cho vay
+  loans        Loan[]
+
+  // 1 user có nhiều lần trả/thu nợ
+  loanPayments LoanPayment[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-// Model RefreshToken: Bảng lưu refresh tokens để quản lý session
+// RefreshToken: lưu refresh token hash để revoke/rotate an toàn
 model RefreshToken {
-  id        String   @id @default(uuid())  // Primary key
-  tokenHash String  // Hash của refresh token (SHA256) để bảo mật
-  userId    String  // Foreign key trỏ đến User
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)  // Relationship với User, xóa cascade khi user bị xóa
+  id        String @id @default(uuid()) // PK
+  tokenHash String                       // Hash (SHA256) của refresh token, không lưu raw token
 
-  ip        String?  // IP address của client (optional, để tracking)
-  userAgent String?  // User agent của client (optional, để tracking)
+  // FK -> User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // onDelete: Cascade => xoá user thì xoá token
 
-  expiresAt DateTime  // Thời gian hết hạn của token
-  createdAt DateTime @default(now())  // Thời gian tạo token
+  // Metadata tuỳ chọn để audit
+  ip        String?
+  userAgent String?
+
+  // Thời gian hết hạn
+  expiresAt DateTime
+
+  // Thời gian tạo token
+  createdAt DateTime @default(now())
+
+  // Index tối ưu query theo user và dọn token hết hạn
+  @@index([userId])
+  @@index([expiresAt])
 }
 
-// Enum Role: Định nghĩa các vai trò trong hệ thống
-enum Role {
-  USER   // Người dùng thông thường
-  ADMIN  // Quản trị viên
+// =========================
+// WALLET
+// =========================
+
+// Wallet: ví của user (tiền mặt, BIDV, VCB...)
+model Wallet {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User (mỗi wallet thuộc 1 user)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Tên ví (unique theo user)
+  name String
+
+  // Loại ví
+  type WalletType @default(cash)
+
+  // Số dư ban đầu (khi tạo ví)
+  // Dùng Decimal để tránh lỗi float
+  openingBalance Decimal @default(0) @db.Decimal(18, 2)
+
+  // Số dư hiện tại (performance)
+  // Rule: luôn update theo entries trong DB transaction khi tạo/sửa/xoá Transaction
+  currentBalance Decimal @default(0) @db.Decimal(18, 2)
+
+  // Không xoá ví cứng nếu muốn giữ lịch sử => archive
+  isArchived Boolean @default(false)
+
+  // =========================
+  // RELATIONS
+  // =========================
+  // Entries (bút toán) dùng wallet này
+  entries TransactionEntry[]
+
+  // Các lần trả/thu nợ dùng wallet này
+  loanPayments LoanPayment[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unique: 1 user không được có 2 ví trùng tên
+  @@unique([userId, name])
+
+  // Index phục vụ list ví theo user, lọc archived
+  @@index([userId, isArchived])
+}
+
+// =========================
+// CATEGORY (SYSTEM TEMPLATE + USER COPIES)
+// =========================
+
+// CategoryTemplate: danh mục cơ bản hệ thống (seed 1 lần)
+// Khi user đăng ký, bạn copy template -> Category (isSystem=true)
+model CategoryTemplate {
+  id String @id @default(uuid()) // PK
+
+  // income/expense
+  type CategoryType
+
+  // Tên category (VD: Ăn uống, Lương...)
+  name String
+
+  // Icon (optional) để UI hiển thị
+  icon String?
+
+  // Thứ tự hiển thị
+  sortOrder Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Không cho trùng template theo (type, name)
+  @@unique([type, name])
+
+  // Index để query danh sách template theo type/sort
+  @@index([type, sortOrder])
+}
+
+// Category: danh mục thuộc user (bao gồm tự tạo + copy từ template)
+model Category {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // income/expense
+  type CategoryType
+
+  // Tên category
+  name String
+
+  // =========================
+  // Self relation: Category cha/con
+  // =========================
+  parentId String?
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children Category[] @relation("CategoryParent")
+  // onDelete: SetNull => xoá category cha thì con không bị xoá, parentId = null
+
+  // Icon + sort
+  icon String?
+  sortOrder Int @default(0)
+
+  // isSystem: category được copy từ template (để phân biệt với user tự tạo)
+  isSystem Boolean @default(false)
+
+  // 1 category có nhiều transactions
+  transactions Transaction[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Unique: tránh trùng tên trong cùng user + type
+  @@unique([userId, type, name])
+
+  // Index để filter nhanh theo user/type
+  @@index([userId, type])
+
+  // Index cho cây danh mục
+  @@index([parentId])
+}
+
+// =========================
+// TRANSACTIONS (Header + Entries)
+// =========================
+
+// Transaction: header giao dịch
+// amount luôn dương; chiều vào/ra nằm ở TransactionEntry.direction
+model Transaction {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Loại giao dịch: income/expense/transfer
+  type TransactionType
+
+  // Ngày giao dịch (UI filter theo ngày)
+  transactionDate DateTime
+
+  // Category: chỉ áp dụng cho income/expense
+  // Transfer => categoryId = null
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Tổng tiền của giao dịch (luôn dương)
+  amount Decimal @db.Decimal(18, 2)
+
+  // Ghi chú
+  note String? @db.Text
+
+  // Soft delete: khi xoá giao dịch => set deletedAt, đồng thời revert balance
+  deletedAt DateTime?
+
+  // =========================
+  // RELATIONS
+  // =========================
+  // 1 transaction có nhiều entries (income/expense: 1; transfer: 2)
+  entries     TransactionEntry[]
+
+  // Nếu transaction được tạo từ LoanPayment => map 1-1
+  loanPayment LoanPayment?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Index tối ưu thống kê/lọc theo thời gian
+  @@index([userId, transactionDate])
+  @@index([userId, type, transactionDate])
+  @@index([userId, categoryId, transactionDate])
+
+  // Index để lọc record chưa bị soft delete
+  @@index([deletedAt])
+}
+
+// TransactionEntry: bút toán tác động lên ví
+model TransactionEntry {
+  id String @id @default(uuid()) // PK
+
+  // FK -> Transaction
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  // FK -> Wallet
+  // onDelete: Restrict => không cho xoá ví nếu còn entry (tránh mất lịch sử)
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  // Chiều: in/out
+  direction EntryDirection
+
+  // Số tiền của entry (luôn dương)
+  amount Decimal @db.Decimal(18, 2)
+
+  // Timestamp
+  createdAt DateTime @default(now())
+
+  // Index join nhanh
+  @@index([transactionId])
+  @@index([walletId])
+}
+
+// =========================
+// LOANS / DEBTS
+// =========================
+
+// Loan: khoản nợ/cho vay
+model Loan {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Kind: bạn nợ / người khác nợ bạn
+  kind LoanKind
+
+  // Người/đơn vị liên quan (VD: Anh A, FE Credit)
+  counterpartyName String
+
+  // Số tiền gốc
+  principal Decimal @db.Decimal(18, 2)
+
+  // Dư nợ còn lại để query nhanh (không phải SUM)
+  // Khi tạo loan: outstandingAmount = principal (thường)
+  // Khi tạo payment: outstandingAmount -= amount; nếu = 0 => status = closed
+  outstandingAmount Decimal @db.Decimal(18, 2)
+
+  // Ngày bắt đầu khoản nợ/vay
+  startDate DateTime
+
+  // Hạn trả (optional)
+  dueDate   DateTime?
+
+  // Trạng thái (open/closed)
+  status    LoanStatus @default(open)
+
+  // Ghi chú
+  note String? @db.Text
+
+  // Soft delete
+  deletedAt DateTime?
+
+  // 1 loan có nhiều payments
+  payments LoanPayment[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Index phục vụ lọc theo trạng thái/kind
+  @@index([userId, kind, status])
+  @@index([userId, dueDate])
+  @@index([deletedAt])
+}
+
+// LoanPayment: mỗi lần trả nợ / thu nợ
+// BẮT BUỘC:
+// - Chọn 1 wallet (walletId)
+// - Tạo 1 transaction tương ứng và liên kết (transactionId)
+//   * you_owe      => tạo Transaction(expense) + entry(out) từ walletId
+//   * owed_to_you  => tạo Transaction(income)  + entry(in)  vào walletId
+model LoanPayment {
+  id String @id @default(uuid()) // PK
+
+  // FK -> Loan
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // FK -> User (để query nhanh và đảm bảo data isolation)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Wallet bắt buộc (theo yêu cầu: trả nợ phải trừ từ 1 ví)
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  // Transaction bắt buộc và unique (1 payment <-> 1 transaction)
+  transactionId String @unique
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Restrict)
+
+  // Ngày trả/thu
+  paymentDate DateTime
+
+  // Số tiền trả/thu
+  amount      Decimal @db.Decimal(18, 2)
+
+  // Ghi chú
+  note String? @db.Text
+
+  // Timestamp
+  createdAt DateTime @default(now())
+
+  // Index thống kê/lịch sử payments
+  @@index([loanId, paymentDate])
+  @@index([userId, paymentDate])
+  @@index([walletId])
 }
