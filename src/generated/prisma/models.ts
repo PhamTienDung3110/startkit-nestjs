@@ -10,4 +10,11 @@
  */
 export type * from './models/User'
 export type * from './models/RefreshToken'
+export type * from './models/Wallet'
+export type * from './models/CategoryTemplate'
+export type * from './models/Category'
+export type * from './models/Transaction'
+export type * from './models/TransactionEntry'
+export type * from './models/Loan'
+export type * from './models/LoanPayment'
 export type * from './commonInputTypes'

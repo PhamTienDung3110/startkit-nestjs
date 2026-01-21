@@ -5,17 +5,75 @@
  */
 import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { handleError } from '../../utils/error-handler';
+
+// Create module-specific error handler
+const handleAuthError = (error: any, res: Response) =>
+  handleError(error, res, 'Auth');
 
 export const AuthController = {
   /**
-   * Đăng ký tài khoản mới
-   * POST /api/auth/register
-   * 
-   * @param req.body.email - Email của user (đã được validate bởi middleware)
-   * @param req.body.password - Password của user (đã được validate)
-   * @param req.body.name - Tên của user (optional)
-   * @returns 201 Created với user info (không có password)
-   * @returns 409 Conflict nếu email đã tồn tại
+   * @swagger
+   * /auth/register:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Đăng ký tài khoản mới
+   *     description: Tạo tài khoản user mới với email, password và tên (optional)
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - password
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "user@example.com"
+   *               password:
+   *                 type: string
+   *                 minLength: 6
+   *                 example: "password123"
+   *               name:
+   *                 type: string
+   *                 example: "Nguyễn Văn A"
+   *     responses:
+   *       201:
+   *         description: Đăng ký thành công
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 id:
+   *                   type: string
+   *                   format: uuid
+   *                 email:
+   *                   type: string
+   *                 name:
+   *                   type: string
+   *                 role:
+   *                   type: string
+   *                   enum: [USER, ADMIN]
+   *                 createdAt:
+   *                   type: string
+   *                   format: date-time
+   *       409:
+   *         description: Email đã tồn tại
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: "Email already exists"
+   *       400:
+   *         description: Dữ liệu không hợp lệ
    */
   async register(req: Request, res: Response) {
     try {
@@ -24,21 +82,64 @@ export const AuthController = {
       // Trả về user info (không có password) với status 201
       return res.status(201).json(user);
     } catch (e: any) {
-      // Xử lý lỗi email đã tồn tại
-      if (e.message === 'EMAIL_EXISTS') return res.status(409).json({ message: 'Email already exists' });
-      // Các lỗi khác
-      return res.status(500).json({ message: 'Internal error' });
+      return handleAuthError(e, res);
     }
   },
 
   /**
-   * Đăng nhập
-   * POST /api/auth/login
-   * 
-   * @param req.body.email - Email của user
-   * @param req.body.password - Password của user
-   * @returns 200 OK với accessToken và refreshToken
-   * @returns 401 Unauthorized nếu credentials không đúng
+   * @swagger
+   * /auth/login:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Đăng nhập
+   *     description: Xác thực user và trả về JWT tokens
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - email
+   *               - password
+   *             properties:
+   *               email:
+   *                 type: string
+   *                 format: email
+   *                 example: "user@example.com"
+   *               password:
+   *                 type: string
+   *                 example: "password123"
+   *     responses:
+   *       200:
+   *         description: Đăng nhập thành công
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 accessToken:
+   *                   type: string
+   *                   description: JWT access token (hết hạn sau 15 phút)
+   *                 refreshToken:
+   *                   type: string
+   *                   description: JWT refresh token (hết hạn sau 7 ngày)
+   *                 user:
+   *                   type: object
+   *                   properties:
+   *                     id:
+   *                       type: string
+   *                       format: uuid
+   *                     email:
+   *                       type: string
+   *                     name:
+   *                       type: string
+   *                     role:
+   *                       type: string
+   *                       enum: [USER, ADMIN]
+   *       401:
+   *         description: Credentials không đúng
    */
   async login(req: Request, res: Response) {
     try {
@@ -50,19 +151,46 @@ export const AuthController = {
       // Trả về tokens
       return res.json(tokens);
     } catch (e: any) {
-      // Xử lý lỗi credentials không đúng
-      if (e.message === 'INVALID_CREDENTIALS') return res.status(401).json({ message: 'Invalid credentials' });
-      return res.status(500).json({ message: 'Internal error' });
+      return handleAuthError(e, res);
     }
   },
 
   /**
-   * Làm mới access token bằng refresh token
-   * POST /api/auth/refresh
-   * 
-   * @param req.body.refreshToken - Refresh token hiện tại
-   * @returns 200 OK với accessToken và refreshToken mới
-   * @returns 401 Unauthorized nếu refresh token không hợp lệ/đã hết hạn/đã bị revoke
+   * @swagger
+   * /auth/refresh:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Làm mới access token
+   *     description: Sử dụng refresh token để tạo access token mới và refresh token mới (token rotation)
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - refreshToken
+   *             properties:
+   *               refreshToken:
+   *                 type: string
+   *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   *     responses:
+   *       200:
+   *         description: Token refreshed thành công
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 accessToken:
+   *                   type: string
+   *                   description: JWT access token mới
+   *                 refreshToken:
+   *                   type: string
+   *                   description: JWT refresh token mới
+   *       401:
+   *         description: Refresh token không hợp lệ hoặc đã hết hạn
    */
   async refresh(req: Request, res: Response) {
     try {
@@ -70,19 +198,35 @@ export const AuthController = {
       const tokens = await AuthService.refresh(req.body.refreshToken);
       return res.json(tokens);
     } catch (e: any) {
-      // Xử lý các lỗi refresh token
-      if (e.message === 'REFRESH_REVOKED') return res.status(401).json({ message: 'Refresh token revoked' });
-      if (e.message === 'REFRESH_EXPIRED') return res.status(401).json({ message: 'Refresh token expired' });
-      return res.status(500).json({ message: 'Internal error' });
+      return handleAuthError(e, res);
     }
   },
 
   /**
-   * Đăng xuất
-   * POST /api/auth/logout
-   * 
-   * @param req.body.refreshToken - Refresh token cần revoke
-   * @returns 204 No Content khi logout thành công
+   * @swagger
+   * /auth/logout:
+   *   post:
+   *     tags:
+   *       - Authentication
+   *     summary: Đăng xuất
+   *     description: Thu hồi refresh token để ngăn chặn việc sử dụng lại
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required:
+   *               - refreshToken
+   *             properties:
+   *               refreshToken:
+   *                 type: string
+   *                 example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+   *     responses:
+   *       204:
+   *         description: Đăng xuất thành công
+   *       401:
+   *         description: Refresh token không hợp lệ
    */
   async logout(req: Request, res: Response) {
     // Xóa refresh token khỏi database (revoke token)

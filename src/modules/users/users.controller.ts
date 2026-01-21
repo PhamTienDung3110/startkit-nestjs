@@ -8,12 +8,42 @@ import { UsersService } from './users.service';
 
 export const UsersController = {
   /**
-   * Lấy thông tin user hiện tại
-   * GET /api/users/me
-   * Yêu cầu: Authentication (requireAuth middleware)
-   * 
-   * @param req.user - User info từ JWT token (được set bởi requireAuth middleware)
-   * @returns 200 OK với thông tin user (không có password)
+   * @swagger
+   * /users/me:
+   *   get:
+   *     tags:
+   *       - Users
+   *     summary: Lấy thông tin user hiện tại
+   *     description: Lấy thông tin của user đang đăng nhập
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Thông tin user
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 id:
+   *                   type: string
+   *                   format: uuid
+   *                 email:
+   *                   type: string
+   *                   format: email
+   *                 name:
+   *                   type: string
+   *                 role:
+   *                   type: string
+   *                   enum: [USER, ADMIN]
+   *                 createdAt:
+   *                   type: string
+   *                   format: date-time
+   *                 updatedAt:
+   *                   type: string
+   *                   format: date-time
+   *       401:
+   *         description: Chưa đăng nhập
    */
   async me(req: Request, res: Response) {
     // req.user được set bởi requireAuth middleware
@@ -23,11 +53,46 @@ export const UsersController = {
   },
 
   /**
-   * Lấy danh sách tất cả users
-   * GET /api/users
-   * Yêu cầu: Authentication + Role ADMIN (requireAuth + requireRole middleware)
-   * 
-   * @returns 200 OK với danh sách users (không có password)
+   * @swagger
+   * /users:
+   *   get:
+   *     tags:
+   *       - Users
+   *     summary: Lấy danh sách tất cả users
+   *     description: Lấy danh sách tất cả users trong hệ thống (chỉ dành cho ADMIN)
+   *     security:
+   *       - bearerAuth: []
+   *     responses:
+   *       200:
+   *         description: Danh sách users
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   id:
+   *                     type: string
+   *                     format: uuid
+   *                   email:
+   *                     type: string
+   *                     format: email
+   *                   name:
+   *                     type: string
+   *                   role:
+   *                     type: string
+   *                     enum: [USER, ADMIN]
+   *                   createdAt:
+   *                     type: string
+   *                     format: date-time
+   *                   updatedAt:
+   *                     type: string
+   *                     format: date-time
+   *       401:
+   *         description: Chưa đăng nhập
+   *       403:
+   *         description: Không có quyền (không phải ADMIN)
    */
   async list(_req: Request, res: Response) {
     // Gọi service để lấy danh sách users

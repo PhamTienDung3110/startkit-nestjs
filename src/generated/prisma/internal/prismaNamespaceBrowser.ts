@@ -52,7 +52,14 @@ export const AnyNull = runtime.AnyNull
 
 export const ModelName = {
   User: 'User',
-  RefreshToken: 'RefreshToken'
+  RefreshToken: 'RefreshToken',
+  Wallet: 'Wallet',
+  CategoryTemplate: 'CategoryTemplate',
+  Category: 'Category',
+  Transaction: 'Transaction',
+  TransactionEntry: 'TransactionEntry',
+  Loan: 'Loan',
+  LoanPayment: 'LoanPayment'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -97,6 +104,112 @@ export const RefreshTokenScalarFieldEnum = {
 export type RefreshTokenScalarFieldEnum = (typeof RefreshTokenScalarFieldEnum)[keyof typeof RefreshTokenScalarFieldEnum]
 
 
+export const WalletScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  type: 'type',
+  openingBalance: 'openingBalance',
+  currentBalance: 'currentBalance',
+  isArchived: 'isArchived',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type WalletScalarFieldEnum = (typeof WalletScalarFieldEnum)[keyof typeof WalletScalarFieldEnum]
+
+
+export const CategoryTemplateScalarFieldEnum = {
+  id: 'id',
+  type: 'type',
+  name: 'name',
+  icon: 'icon',
+  sortOrder: 'sortOrder',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CategoryTemplateScalarFieldEnum = (typeof CategoryTemplateScalarFieldEnum)[keyof typeof CategoryTemplateScalarFieldEnum]
+
+
+export const CategoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  name: 'name',
+  parentId: 'parentId',
+  icon: 'icon',
+  sortOrder: 'sortOrder',
+  isSystem: 'isSystem',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type CategoryScalarFieldEnum = (typeof CategoryScalarFieldEnum)[keyof typeof CategoryScalarFieldEnum]
+
+
+export const TransactionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  type: 'type',
+  transactionDate: 'transactionDate',
+  categoryId: 'categoryId',
+  amount: 'amount',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type TransactionScalarFieldEnum = (typeof TransactionScalarFieldEnum)[keyof typeof TransactionScalarFieldEnum]
+
+
+export const TransactionEntryScalarFieldEnum = {
+  id: 'id',
+  transactionId: 'transactionId',
+  walletId: 'walletId',
+  direction: 'direction',
+  amount: 'amount',
+  createdAt: 'createdAt'
+} as const
+
+export type TransactionEntryScalarFieldEnum = (typeof TransactionEntryScalarFieldEnum)[keyof typeof TransactionEntryScalarFieldEnum]
+
+
+export const LoanScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  kind: 'kind',
+  counterpartyName: 'counterpartyName',
+  principal: 'principal',
+  outstandingAmount: 'outstandingAmount',
+  startDate: 'startDate',
+  dueDate: 'dueDate',
+  status: 'status',
+  note: 'note',
+  deletedAt: 'deletedAt',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type LoanScalarFieldEnum = (typeof LoanScalarFieldEnum)[keyof typeof LoanScalarFieldEnum]
+
+
+export const LoanPaymentScalarFieldEnum = {
+  id: 'id',
+  loanId: 'loanId',
+  userId: 'userId',
+  walletId: 'walletId',
+  transactionId: 'transactionId',
+  paymentDate: 'paymentDate',
+  amount: 'amount',
+  note: 'note',
+  createdAt: 'createdAt'
+} as const
+
+export type LoanPaymentScalarFieldEnum = (typeof LoanPaymentScalarFieldEnum)[keyof typeof LoanPaymentScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -132,4 +245,74 @@ export const RefreshTokenOrderByRelevanceFieldEnum = {
 } as const
 
 export type RefreshTokenOrderByRelevanceFieldEnum = (typeof RefreshTokenOrderByRelevanceFieldEnum)[keyof typeof RefreshTokenOrderByRelevanceFieldEnum]
+
+
+export const WalletOrderByRelevanceFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name'
+} as const
+
+export type WalletOrderByRelevanceFieldEnum = (typeof WalletOrderByRelevanceFieldEnum)[keyof typeof WalletOrderByRelevanceFieldEnum]
+
+
+export const CategoryTemplateOrderByRelevanceFieldEnum = {
+  id: 'id',
+  name: 'name',
+  icon: 'icon'
+} as const
+
+export type CategoryTemplateOrderByRelevanceFieldEnum = (typeof CategoryTemplateOrderByRelevanceFieldEnum)[keyof typeof CategoryTemplateOrderByRelevanceFieldEnum]
+
+
+export const CategoryOrderByRelevanceFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  name: 'name',
+  parentId: 'parentId',
+  icon: 'icon'
+} as const
+
+export type CategoryOrderByRelevanceFieldEnum = (typeof CategoryOrderByRelevanceFieldEnum)[keyof typeof CategoryOrderByRelevanceFieldEnum]
+
+
+export const TransactionOrderByRelevanceFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  categoryId: 'categoryId',
+  note: 'note'
+} as const
+
+export type TransactionOrderByRelevanceFieldEnum = (typeof TransactionOrderByRelevanceFieldEnum)[keyof typeof TransactionOrderByRelevanceFieldEnum]
+
+
+export const TransactionEntryOrderByRelevanceFieldEnum = {
+  id: 'id',
+  transactionId: 'transactionId',
+  walletId: 'walletId'
+} as const
+
+export type TransactionEntryOrderByRelevanceFieldEnum = (typeof TransactionEntryOrderByRelevanceFieldEnum)[keyof typeof TransactionEntryOrderByRelevanceFieldEnum]
+
+
+export const LoanOrderByRelevanceFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  counterpartyName: 'counterpartyName',
+  note: 'note'
+} as const
+
+export type LoanOrderByRelevanceFieldEnum = (typeof LoanOrderByRelevanceFieldEnum)[keyof typeof LoanOrderByRelevanceFieldEnum]
+
+
+export const LoanPaymentOrderByRelevanceFieldEnum = {
+  id: 'id',
+  loanId: 'loanId',
+  userId: 'userId',
+  walletId: 'walletId',
+  transactionId: 'transactionId',
+  note: 'note'
+} as const
+
+export type LoanPaymentOrderByRelevanceFieldEnum = (typeof LoanPaymentOrderByRelevanceFieldEnum)[keyof typeof LoanPaymentOrderByRelevanceFieldEnum]
 
