@@ -48,6 +48,7 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   INVALID_CATEGORY_TYPE_FOR_EXPENSE: { status: 400, message: 'Category type must be expense for expense transactions' },
   UNSUPPORTED_TRANSACTION_TYPE: { status: 400, message: 'Unsupported transaction type' },
   SAME_WALLET_TRANSFER: { status: 400, message: 'Ví nguồn và ví đích phải khác nhau' },
+  INSUFFICIENT_WALLET_BALANCE: { status: 400, message: 'Số dư ví không đủ để thực hiện giao dịch' },
   INSUFFICIENT_BALANCE: { status: 400, message: 'Insufficient balance' },
 
   // Validation Errors

@@ -13,16 +13,22 @@ import { prisma } from '../../db/prisma';
 import { CreateTransactionData } from './transaction.schema';
 
 /**
- * Validate wallet ownership
- * Đảm bảo wallet thuộc về user hiện tại
+ * Validate wallet ownership and check sufficient balance for debit operations
+ * Đảm bảo wallet thuộc về user hiện tại và có đủ số dư
  */
-async function validateWalletOwnership(walletId: string, userId: string) {
+async function validateWalletOwnership(walletId: string, userId: string, requiredAmount?: number) {
   const wallet = await prisma.wallet.findFirst({
     where: { id: walletId, userId, isArchived: false }
   });
   if (!wallet) {
     throw new Error('TRANSACTION_WALLET_NOT_FOUND');
   }
+
+  // Kiểm tra số dư nếu cần trừ tiền (expense hoặc transfer out)
+  if (requiredAmount !== undefined && wallet.currentBalance.toNumber() < requiredAmount) {
+    throw new Error('INSUFFICIENT_WALLET_BALANCE');
+  }
+
   return wallet;
 }
 
@@ -102,16 +108,27 @@ async function createIncomeTransaction(data: CreateTransactionData & { type: 'in
 /**
  * Tạo Expense transaction
  * Logic: 1 entry (direction: out) từ wallet, giảm currentBalance
+ * Kiểm tra số dư trước khi thực hiện
  */
 async function createExpenseTransaction(data: CreateTransactionData & { type: 'expense' }, userId: string) {
   const { walletId, categoryId, transactionDate, amount, note } = data;
 
-  // Validate wallet và category
-  await validateWalletOwnership(walletId, userId);
+  // Validate wallet và kiểm tra số dư
+  await validateWalletOwnership(walletId, userId, amount);
   await validateCategoryOwnership(categoryId!, userId, 'expense');
 
   // Tạo transaction và entry trong DB transaction
   return await prisma.$transaction(async (tx) => {
+    // Kiểm tra lại số dư trong transaction để tránh race condition
+    const wallet = await tx.wallet.findUnique({
+      where: { id: walletId },
+      select: { currentBalance: true }
+    });
+
+    if (!wallet || wallet.currentBalance.toNumber() < amount) {
+      throw new Error('INSUFFICIENT_WALLET_BALANCE');
+    }
+
     // 1. Tạo Transaction header
     const transaction = await tx.transaction.create({
       data: {
@@ -152,6 +169,7 @@ async function createExpenseTransaction(data: CreateTransactionData & { type: 'e
 /**
  * Tạo Transfer transaction
  * Logic: 2 entries (out từ fromWallet, in vào toWallet), balance thay đổi tương ứng
+ * Kiểm tra số dư ví nguồn trước khi thực hiện
  */
 async function createTransferTransaction(data: CreateTransactionData & { type: 'transfer' }, userId: string) {
   const { fromWalletId, toWalletId, transactionDate, amount, note } = data;
@@ -161,12 +179,22 @@ async function createTransferTransaction(data: CreateTransactionData & { type: '
     throw new Error('SAME_WALLET_TRANSFER');
   }
 
-  // Validate cả 2 wallet
-  await validateWalletOwnership(fromWalletId, userId);
+  // Validate cả 2 wallet, kiểm tra số dư ví nguồn
+  await validateWalletOwnership(fromWalletId, userId, amount);
   await validateWalletOwnership(toWalletId, userId);
 
   // Tạo transaction và entries trong DB transaction
   return await prisma.$transaction(async (tx) => {
+    // Kiểm tra lại số dư ví nguồn trong transaction để tránh race condition
+    const fromWallet = await tx.wallet.findUnique({
+      where: { id: fromWalletId },
+      select: { currentBalance: true }
+    });
+
+    if (!fromWallet || fromWallet.currentBalance.toNumber() < amount) {
+      throw new Error('INSUFFICIENT_WALLET_BALANCE');
+    }
+
     // 1. Tạo Transaction header (transfer không có category)
     const transaction = await tx.transaction.create({
       data: {
