@@ -15,6 +15,8 @@ import { WalletController } from './modules/wallet/wallet.controller';
 import { createWalletSchema, updateWalletSchema, getWalletsQuerySchema } from './modules/wallet/wallet.schema';
 import { CategoryController } from './modules/category/category.controller';
 import { createCategorySchema, updateCategorySchema, getCategoriesQuerySchema, createFromTemplateSchema } from './modules/category/category.schema';
+import { LoanController } from './modules/loan/loan.controller';
+import { createLoanSchema, updateLoanSchema, createLoanPaymentSchema, getLoansQuerySchema, getLoanPaymentsQuerySchema } from './modules/loan/loan.schema';
 
 // Tạo router instance để định nghĩa các routes
 export const routes = Router();
@@ -55,3 +57,15 @@ routes.get('/categories/templates', CategoryController.getTemplates);
 routes.get('/categories/:id', requireAuth, CategoryController.getCategory);
 routes.put('/categories/:id', requireAuth, validateBody(updateCategorySchema), CategoryController.updateCategory);
 routes.delete('/categories/:id', requireAuth, CategoryController.deleteCategory);
+
+// ========== Loan Routes ==========
+routes.post('/loans', requireAuth, validateBody(createLoanSchema), LoanController.createLoan);
+routes.get('/loans', requireAuth, LoanController.getLoans);
+routes.get('/loans/stats/summary', requireAuth, LoanController.getLoanStats);
+routes.get('/loans/:id', requireAuth, LoanController.getLoan);
+routes.put('/loans/:id', requireAuth, validateBody(updateLoanSchema), LoanController.updateLoan);
+routes.delete('/loans/:id', requireAuth, LoanController.deleteLoan);
+
+// ========== Loan Payment Routes ==========
+routes.post('/loan-payments', requireAuth, validateBody(createLoanPaymentSchema), LoanController.createLoanPayment);
+routes.get('/loan-payments', requireAuth, LoanController.getLoanPayments);
