@@ -156,16 +156,29 @@ export const LoanService = {
    * @returns Danh sách khoản nợ với pagination
    */
   async getLoans(userId: string, filters: Partial<GetLoansQuery> = {}) {
-    const { kind, status, limit = 50, offset = 0 } = filters;
+    const { kind, status, startDate, endDate } = filters;
+    const limit = Math.min(100, Math.max(1, Number(filters.limit) || 50));
+    const offset = Math.max(0, Number(filters.offset) || 0);
 
     // Build where clause
-    const where: any = { 
+    const where: any = {
       userId,
       deletedAt: null
     };
 
     if (kind) where.kind = kind;
     if (status) where.status = status;
+    if (startDate || endDate) {
+      where.startDate = {};
+      if (startDate) {
+        const d = new Date(startDate);
+        if (!isNaN(d.getTime())) where.startDate.gte = d;
+      }
+      if (endDate) {
+        const d = new Date(endDate);
+        if (!isNaN(d.getTime())) where.startDate.lte = d;
+      }
+    }
 
     // Lấy danh sách khoản nợ
     const loans = await prisma.loan.findMany({
@@ -266,30 +279,79 @@ export const LoanService = {
    * @throws Error('LOAN_HAS_PAYMENTS') nếu khoản nợ đã có thanh toán
    */
   async deleteLoan(loanId: string, userId: string) {
-    // Kiểm tra khoản nợ tồn tại và thuộc user
-    const loan = await prisma.loan.findFirst({
-      where: { id: loanId, userId, deletedAt: null },
-      include: {
-        payments: {
-          select: { id: true },
-          take: 1
+    // Xóa khoản nợ cần đảm bảo hoàn lại tiền gốc vào ví
+    // Chỉ cho phép xóa nếu khoản nợ chưa có thanh toán nào
+    const deletedLoan = await prisma.$transaction(async (tx) => {
+      // 1. Lấy loan + kiểm tra payments
+      const loan = await tx.loan.findFirst({
+        where: { id: loanId, userId, deletedAt: null },
+        include: {
+          payments: {
+            select: { id: true },
+            take: 1
+          }
         }
+      });
+
+      if (!loan) {
+        throw new Error('LOAN_NOT_FOUND');
       }
-    });
 
-    if (!loan) {
-      throw new Error('LOAN_NOT_FOUND');
-    }
+      if (loan.payments.length > 0) {
+        // Khoản nợ đã có thanh toán (thu nợ / trả nợ) thì không tự hoàn tiền khi xóa
+        // Giữ behaviour cũ: không cho xóa để tránh sai lệch sổ
+        throw new Error('LOAN_HAS_PAYMENTS');
+      }
 
-    // Kiểm tra khoản nợ có thanh toán nào không
-    if (loan.payments.length > 0) {
-      throw new Error('LOAN_HAS_PAYMENTS');
-    }
+      // 2. Thử tìm Transaction gốc đã được tạo khi tạo loan để hoàn tiền
+      //    Do schema hiện tại không link trực tiếp Loan <-> Transaction,
+      //    ta dựa theo: userId, amount, type, ngày và note chứa counterpartyName.
+      const transactionType = loan.kind === 'you_owe' ? 'income' : 'expense';
 
-    // Soft delete khoản nợ
-    const deletedLoan = await prisma.loan.update({
-      where: { id: loanId },
-      data: { deletedAt: new Date() }
+      const baseTransaction = await tx.transaction.findFirst({
+        where: {
+          userId,
+          deletedAt: null,
+          type: transactionType,
+          amount: loan.principal,
+          transactionDate: loan.startDate,
+          note: loan.note ? { contains: loan.counterpartyName } : undefined
+        },
+        include: {
+          entries: true
+        }
+      });
+
+      if (baseTransaction && baseTransaction.entries.length === 1) {
+        const entry = baseTransaction.entries[0];
+
+        // 3. Hoàn tiền lại ví theo loại khoản nợ
+        // - you_owe: lúc tạo loan đã cộng tiền vào ví -> giờ phải trừ lại
+        // - owed_to_you: lúc tạo loan đã trừ tiền khỏi ví -> giờ phải cộng lại
+        await tx.wallet.update({
+          where: { id: entry.walletId },
+          data: {
+            currentBalance: {
+              [loan.kind === 'you_owe' ? 'decrement' : 'increment']:
+                loan.principal
+            } as any
+          }
+        });
+
+        // 4. Soft delete transaction gốc để không còn hiển thị trong lịch sử
+        await tx.transaction.update({
+          where: { id: baseTransaction.id },
+          data: { deletedAt: new Date() }
+        });
+      }
+
+      // 5. Soft delete loan
+      const deleted = await tx.loan.update({
+        where: { id: loanId },
+        data: { deletedAt: new Date() }
+      });
+
+      return deleted;
     });
 
     return deletedLoan;

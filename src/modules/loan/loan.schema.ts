@@ -37,6 +37,8 @@ export const createLoanPaymentSchema = z.object({
 export const getLoansQuerySchema = z.object({
   kind: z.enum(['you_owe', 'owed_to_you']).optional(),
   status: z.enum(['open', 'closed']).optional(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0)
 });
