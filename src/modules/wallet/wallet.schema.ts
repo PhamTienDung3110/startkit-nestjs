@@ -28,7 +28,11 @@ export const updateWalletSchema = z.object({
   type: z.enum(['cash', 'bank', 'ewallet', 'credit'], {
     message: 'Loại ví phải là cash, bank, ewallet hoặc credit'
   }).optional(),
-  isArchived: z.boolean().optional()
+  isArchived: z.boolean().optional(),
+  currentBalance: z.number()
+    .min(0, 'Số dư không được âm')
+    .refine((val) => Number(val.toFixed(2)) === val, 'Số dư chỉ được phép 2 số thập phân')
+    .optional()
 }).refine(
   (data) => Object.keys(data).length > 0,
   'Phải cung cấp ít nhất một trường để cập nhật'
