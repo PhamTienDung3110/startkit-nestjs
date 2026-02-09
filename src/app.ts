@@ -24,27 +24,29 @@ import { errorMiddleware } from './middlewares/error.middleware';
 export function createApp() {
   const app = express();
 
-    // Cấu hình CORS - cho phép cross-origin requests
-    const allowedOrigins = (
-      process.env.CORS_ORIGIN || ''
-    ).split(',').map(o => o.trim());
-    
-    app.use(cors({
-      origin: (origin, callback) => {
-        // Cho phép server-to-server, postman, health check
-        if (!origin) return callback(null, true);
-    
-        if (allowedOrigins.includes(origin)) {
-          return callback(null, true);
-        }
-    
-        console.log('❌ CORS blocked origin:', origin);
-        return callback(new Error('Not allowed by CORS'));
-      },
-      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization'],
-    }));
-  
+  // Cấu hình CORS - cho phép cross-origin requests
+  const allowedOrigins = (process.env.CORS_ORIGIN || '')
+    .split(',')
+    .map(o => o.trim());
+
+  console.log('✅ CORS allowed origins:', allowedOrigins);
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      // Cho phép curl / server-to-server
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.log('❌ CORS blocked:', origin);
+      return callback(new Error('Not allowed by CORS'));
+    },
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  }));
+
 
   // Middleware logging HTTP requests với Pino
   app.use(pinoHttp({ logger }));
