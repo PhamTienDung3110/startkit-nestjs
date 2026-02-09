@@ -52,15 +52,39 @@ export const AuthService = {
     // Tạo user mới với password đã được hash
     // Role mặc định là USER
     const user = await prisma.user.create({
-      data: { 
-        email, 
+      data: {
+        email,
         password: await hashPassword(password), // Hash password trước khi lưu
-        name, 
-        role: 'USER' 
+        name,
+        role: 'USER'
       },
       // Chỉ select các field cần thiết, không trả về password
       select: { id: true, email: true, name: true, role: true },
     });
+
+    // Tạo ví tiền mặt mặc định và các danh mục mặc định cho user mới (trong transaction)
+    await prisma.$transaction(async (tx) => {
+      // 1. Ví tiền mặt: value 0
+      await tx.wallet.create({
+        data: {
+          userId: user.id,
+          name: 'Tiền mặt',
+          type: 'cash',
+          openingBalance: 0,
+          currentBalance: 0
+        }
+      });
+
+      // 2. Danh mục mặc định: Ăn uống (chi tiêu), Lương (thu nhập), Mua sắm (chi tiêu)
+      await tx.category.createMany({
+        data: [
+          { userId: user.id, name: 'Ăn uống', type: 'expense', icon: 'utensils', sortOrder: 0, isSystem: true },
+          { userId: user.id, name: 'Lương', type: 'income', icon: 'wallet', sortOrder: 0, isSystem: true },
+          { userId: user.id, name: 'Mua sắm', type: 'expense', icon: 'shopping-cart', sortOrder: 1, isSystem: true }
+        ]
+      });
+    });
+
     return user;
   },
 
@@ -70,17 +94,28 @@ export const AuthService = {
    * @param email - Email của user
    * @param password - Plain password để verify
    * @param meta - Metadata từ request (IP, User-Agent) để tracking
-   * @returns Object chứa accessToken và refreshToken
+   * @returns Object chứa accessToken, refreshToken và user info (không có password)
    * @throws Error('INVALID_CREDENTIALS') nếu email hoặc password không đúng
+   * 
+   * Security Note: 
+   * - Luôn throw cùng một error message để tránh tiết lộ thông tin
+   * - Không phân biệt giữa "email không tồn tại" và "password sai"
+   * - Điều này giúp bảo vệ user privacy và tránh enumeration attacks
    */
   async login(email: string, password: string, meta?: { ip?: string; userAgent?: string }) {
     // Tìm user theo email
     const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) throw new Error('INVALID_CREDENTIALS');
+    
+    // Verify password - chỉ verify nếu user tồn tại
+    // Nếu user không tồn tại hoặc password sai, throw cùng một error
+    if (!user) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
 
-    // Verify password
-    const ok = await comparePassword(password, user.password);
-    if (!ok) throw new Error('INVALID_CREDENTIALS');
+    const isValid = await comparePassword(password, user.password);
+    if (!isValid) {
+      throw new Error('INVALID_CREDENTIALS');
+    }
 
     // Tạo JWT payload (chứa user id và role)
     const payload = { sub: user.id, role: user.role } as const;
@@ -101,7 +136,17 @@ export const AuthService = {
       },
     });
 
-    return { accessToken, refreshToken };
+    // Trả về tokens và user info (không có password)
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }
+    };
   },
 
   /**

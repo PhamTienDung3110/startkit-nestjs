@@ -27,3 +27,38 @@ export type User = Prisma.UserModel
  * 
  */
 export type RefreshToken = Prisma.RefreshTokenModel
+/**
+ * Model Wallet
+ * 
+ */
+export type Wallet = Prisma.WalletModel
+/**
+ * Model CategoryTemplate
+ * 
+ */
+export type CategoryTemplate = Prisma.CategoryTemplateModel
+/**
+ * Model Category
+ * 
+ */
+export type Category = Prisma.CategoryModel
+/**
+ * Model Transaction
+ * 
+ */
+export type Transaction = Prisma.TransactionModel
+/**
+ * Model TransactionEntry
+ * 
+ */
+export type TransactionEntry = Prisma.TransactionEntryModel
+/**
+ * Model Loan
+ * 
+ */
+export type Loan = Prisma.LoanModel
+/**
+ * Model LoanPayment
+ * 
+ */
+export type LoanPayment = Prisma.LoanPaymentModel

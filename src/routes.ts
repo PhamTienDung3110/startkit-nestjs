@@ -9,6 +9,14 @@ import { requireAuth, requireRole } from './middlewares/auth.middleware';
 import { AuthController } from './modules/auth/auth.controller';
 import { registerSchema, loginSchema, refreshSchema } from './modules/auth/auth.schema';
 import { UsersController } from './modules/users/users.controller';
+import { TransactionController } from './modules/transaction/transaction.controller';
+import { createTransactionSchema } from './modules/transaction/transaction.schema';
+import { WalletController } from './modules/wallet/wallet.controller';
+import { createWalletSchema, updateWalletSchema, getWalletsQuerySchema } from './modules/wallet/wallet.schema';
+import { CategoryController } from './modules/category/category.controller';
+import { createCategorySchema, updateCategorySchema, getCategoriesQuerySchema, createFromTemplateSchema } from './modules/category/category.schema';
+import { LoanController } from './modules/loan/loan.controller';
+import { createLoanSchema, updateLoanSchema, createLoanPaymentSchema, getLoansQuerySchema, getLoanPaymentsQuerySchema } from './modules/loan/loan.schema';
 
 // Tạo router instance để định nghĩa các routes
 export const routes = Router();
@@ -28,3 +36,36 @@ routes.post('/auth/logout', validateBody(refreshSchema), AuthController.logout);
 routes.get('/users/me', requireAuth, UsersController.me);
 // Lấy danh sách users - yêu cầu authentication và role ADMIN
 routes.get('/users', requireAuth, requireRole(['ADMIN']), UsersController.list);
+
+// ========== Transaction Routes ==========
+routes.post('/transactions', requireAuth, validateBody(createTransactionSchema), TransactionController.createTransaction);
+routes.get('/transactions', requireAuth, TransactionController.getTransactions);
+
+// ========== Wallet Routes ==========
+routes.post('/wallets', requireAuth, validateBody(createWalletSchema), WalletController.createWallet);
+routes.get('/wallets', requireAuth, WalletController.getWallets);
+routes.get('/wallets/stats/summary', requireAuth, WalletController.getWalletStats);
+routes.get('/wallets/:id', requireAuth, WalletController.getWallet);
+routes.put('/wallets/:id', requireAuth, validateBody(updateWalletSchema), WalletController.updateWallet);
+routes.delete('/wallets/:id', requireAuth, WalletController.deleteWallet);
+
+// ========== Category Routes ==========
+routes.post('/categories', requireAuth, validateBody(createCategorySchema), CategoryController.createCategory);
+routes.post('/categories/from-template', requireAuth, validateBody(createFromTemplateSchema), CategoryController.createFromTemplate);
+routes.get('/categories', requireAuth, CategoryController.getCategories);
+routes.get('/categories/templates', CategoryController.getTemplates);
+routes.get('/categories/:id', requireAuth, CategoryController.getCategory);
+routes.put('/categories/:id', requireAuth, validateBody(updateCategorySchema), CategoryController.updateCategory);
+routes.delete('/categories/:id', requireAuth, CategoryController.deleteCategory);
+
+// ========== Loan Routes ==========
+routes.post('/loans', requireAuth, validateBody(createLoanSchema), LoanController.createLoan);
+routes.get('/loans', requireAuth, LoanController.getLoans);
+routes.get('/loans/stats/summary', requireAuth, LoanController.getLoanStats);
+routes.get('/loans/:id', requireAuth, LoanController.getLoan);
+routes.put('/loans/:id', requireAuth, validateBody(updateLoanSchema), LoanController.updateLoan);
+routes.delete('/loans/:id', requireAuth, LoanController.deleteLoan);
+
+// ========== Loan Payment Routes ==========
+routes.post('/loan-payments', requireAuth, validateBody(createLoanPaymentSchema), LoanController.createLoanPayment);
+routes.get('/loan-payments', requireAuth, LoanController.getLoanPayments);
