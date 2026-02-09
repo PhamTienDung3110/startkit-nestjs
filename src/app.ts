@@ -32,6 +32,7 @@ export function createApp() {
   console.log('✅ CORS allowed origins:', allowedOrigins);
 
   app.use(cors({
+    credentials: true,
     origin: (origin, callback) => {
       // Cho phép curl / server-to-server
       if (!origin) return callback(null, true);
