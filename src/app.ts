@@ -36,28 +36,25 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
 
   // Cấu hình CORS - cho phép cross-origin requests
-  const allowedOrigins = process.env.CORS_ORIGIN
-    ? process.env.CORS_ORIGIN.split(',')
-    : [];
-
+  const allowedOrigins = (
+    process.env.CORS_ORIGIN || ''
+  ).split(',').map(o => o.trim());
+  
   app.use(cors({
     origin: (origin, callback) => {
-      // Cho phép curl, postman, server-to-server
+      // Cho phép server-to-server, postman, health check
       if (!origin) return callback(null, true);
-
+  
       if (allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-
+  
       console.log('❌ CORS blocked origin:', origin);
       return callback(new Error('Not allowed by CORS'));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   }));
-
-  // PRE-FLIGHT (RẤT QUAN TRỌNG)
-  app.options('*', cors());
 
   // Swagger JSON spec endpoint
   app.get('/api-docs.json', (req, res) => {
