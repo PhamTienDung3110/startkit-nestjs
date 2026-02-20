@@ -6,7 +6,7 @@ import { z } from 'zod';
 const baseTemplateSchema = {
   name: z.string().min(1, 'Tên template không được để trống').max(100, 'Tên template không được quá 100 ký tự'),
   type: z.enum(['income', 'expense', 'transfer'], {
-    errorMap: () => ({ message: 'type phải là income, expense hoặc transfer' })
+    message: 'type phải là income, expense hoặc transfer'
   }),
   amount: z.number().positive('amount phải lớn hơn 0').refine(
     (val) => Number(val.toFixed(2)) === val,

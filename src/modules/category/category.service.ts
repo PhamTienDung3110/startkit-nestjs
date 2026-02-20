@@ -253,7 +253,7 @@ export const CategoryService = {
    * @param data - Dữ liệu tạo từ template
    * @param userId - ID của user
    * @returns Category object đã tạo
-   * @throws Error('TEMPLATE_NOT_FOUND') nếu template không tồn tại
+   * @throws Error('CATEGORY_TEMPLATE_NOT_FOUND') nếu template không tồn tại
    * @throws Error('CATEGORY_NAME_EXISTS') nếu tên đã tồn tại
    */
   async createFromTemplate(data: CreateFromTemplateData, userId: string) {
@@ -265,7 +265,7 @@ export const CategoryService = {
     });
 
     if (!template) {
-      throw new Error('TEMPLATE_NOT_FOUND');
+      throw new Error('CATEGORY_TEMPLATE_NOT_FOUND');
     }
 
     const categoryName = customName || template.name;

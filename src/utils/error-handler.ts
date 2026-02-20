@@ -39,7 +39,7 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   CATEGORY_NOT_FOUND: { status: 404, message: 'Category not found' },
   CATEGORY_HAS_TRANSACTIONS: { status: 409, message: 'Cannot delete category with existing transactions' },
   CATEGORY_HAS_CHILDREN: { status: 409, message: 'Cannot delete category with child categories' },
-  TEMPLATE_NOT_FOUND: { status: 404, message: 'Category template not found' },
+  CATEGORY_TEMPLATE_NOT_FOUND: { status: 404, message: 'Category template not found' },
 
   // Transaction Errors
   TRANSACTION_WALLET_NOT_FOUND: { status: 404, message: 'Wallet not found or does not belong to user' },

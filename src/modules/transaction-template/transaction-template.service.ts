@@ -76,7 +76,9 @@ export const TransactionTemplateService = {
    * @throws Error nếu validation fail hoặc có lỗi database
    */
   async createTemplate(data: CreateTemplateData, userId: string) {
-    const { name, type, walletId, categoryId, amount, note } = data;
+    const { name, type, amount, note } = data;
+    const walletId = 'walletId' in data ? data.walletId : undefined;
+    const categoryId = 'categoryId' in data ? data.categoryId : undefined;
 
     // Validate wallet ownership
     await validateWalletOwnership(walletId || null, userId);
