@@ -113,6 +113,9 @@ model User {
   // 1 user có nhiều lần trả/thu nợ
   loanPayments LoanPayment[]
 
+  // 1 user có nhiều transaction templates
+  transactionTemplates TransactionTemplate[]
+
   // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -182,6 +185,9 @@ model Wallet {
 
   // Các lần trả/thu nợ dùng wallet này
   loanPayments LoanPayment[]
+
+  // Transaction templates sử dụng wallet này
+  transactionTemplates TransactionTemplate[]
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -257,6 +263,9 @@ model Category {
 
   // 1 category có nhiều transactions
   transactions Transaction[]
+
+  // Transaction templates sử dụng category này
+  transactionTemplates TransactionTemplate[]
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -356,6 +365,51 @@ model TransactionEntry {
   // Index join nhanh
   @@index([transactionId])
   @@index([walletId])
+}
+
+// =========================
+// TRANSACTION TEMPLATES
+// =========================
+
+// TransactionTemplate: template để autofill khi tạo transaction mới
+// Template lưu các thông tin cố định: walletId, categoryId, amount, type, note
+// User có thể tạo template từ transaction hiện có hoặc tạo độc lập
+model TransactionTemplate {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User (multi-tenant)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Tên template để dễ nhận biết (VD: "Lương tháng", "Tiền điện")
+  name String
+
+  // Loại giao dịch: income/expense/transfer
+  type TransactionType
+
+  // Wallet ID: với income/expense là wallet chính, với transfer là fromWalletId
+  walletId String?
+  wallet   Wallet? @relation(fields: [walletId], references: [id], onDelete: SetNull)
+  // onDelete: SetNull => nếu xóa wallet thì template vẫn giữ, nhưng walletId = null
+
+  // Category ID: chỉ áp dụng cho income/expense, transfer => null
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  // Số tiền mặc định (luôn dương)
+  amount Decimal? @db.Decimal(18, 2)
+  // Optional: có thể để null nếu user muốn tự nhập mỗi lần
+
+  // Ghi chú mặc định
+  note String? @db.Text
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Index để query nhanh theo user/type
+  @@index([userId, type])
+  @@index([userId])
 }
 
 // =========================

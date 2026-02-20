@@ -17,6 +17,8 @@ import { CategoryController } from './modules/category/category.controller';
 import { createCategorySchema, updateCategorySchema, getCategoriesQuerySchema, createFromTemplateSchema } from './modules/category/category.schema';
 import { LoanController } from './modules/loan/loan.controller';
 import { createLoanSchema, updateLoanSchema, createLoanPaymentSchema, getLoansQuerySchema, getLoanPaymentsQuerySchema } from './modules/loan/loan.schema';
+import { TransactionTemplateController } from './modules/transaction-template/transaction-template.controller';
+import { createTemplateSchema, createTemplateFromTransactionSchema, updateTemplateSchema } from './modules/transaction-template/transaction-template.schema';
 
 // Tạo router instance để định nghĩa các routes
 export const routes = Router();
@@ -69,3 +71,11 @@ routes.delete('/loans/:id', requireAuth, LoanController.deleteLoan);
 // ========== Loan Payment Routes ==========
 routes.post('/loan-payments', requireAuth, validateBody(createLoanPaymentSchema), LoanController.createLoanPayment);
 routes.get('/loan-payments', requireAuth, LoanController.getLoanPayments);
+
+// ========== Transaction Template Routes ==========
+routes.post('/transaction-templates', requireAuth, validateBody(createTemplateSchema), TransactionTemplateController.createTemplate);
+routes.post('/transaction-templates/from-transaction', requireAuth, validateBody(createTemplateFromTransactionSchema), TransactionTemplateController.createTemplateFromTransaction);
+routes.get('/transaction-templates', requireAuth, TransactionTemplateController.getTemplates);
+routes.get('/transaction-templates/:id', requireAuth, TransactionTemplateController.getTemplate);
+routes.put('/transaction-templates/:id', requireAuth, validateBody(updateTemplateSchema), TransactionTemplateController.updateTemplate);
+routes.delete('/transaction-templates/:id', requireAuth, TransactionTemplateController.deleteTemplate);

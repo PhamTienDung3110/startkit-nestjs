@@ -50,6 +50,14 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   SAME_WALLET_TRANSFER: { status: 400, message: 'Ví nguồn và ví đích phải khác nhau' },
   INSUFFICIENT_WALLET_BALANCE: { status: 400, message: 'Số dư ví không đủ để thực hiện giao dịch' },
   INSUFFICIENT_BALANCE: { status: 400, message: 'Insufficient balance' },
+  TRANSACTION_NOT_FOUND: { status: 404, message: 'Transaction not found' },
+
+  // Transaction Template Errors
+  TEMPLATE_NAME_EXISTS: { status: 409, message: 'Template name already exists' },
+  TEMPLATE_NOT_FOUND: { status: 404, message: 'Transaction template not found' },
+  TEMPLATE_WALLET_NOT_FOUND: { status: 404, message: 'Wallet not found or does not belong to user' },
+  TEMPLATE_CATEGORY_NOT_FOUND: { status: 404, message: 'Category not found or does not belong to user' },
+  TEMPLATE_CATEGORY_TYPE_MISMATCH: { status: 400, message: 'Category type does not match transaction type' },
 
   // Validation Errors
   VALIDATION_ERROR: { status: 400, message: 'Validation error' },
