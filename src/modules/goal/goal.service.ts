@@ -66,8 +66,8 @@ export const GoalService = {
         description,
         periodType,
         trackingType,
-        targetValue: targetValue ? new Decimal(targetValue) : null,
-        currentValue: new Decimal(currentValue),
+        targetValue: targetValue || null,
+        currentValue: currentValue || 0,
         unit,
         parentGoalId,
         autoCalculate,
@@ -78,7 +78,7 @@ export const GoalService = {
         endDate: endDate ? new Date(endDate) : null,
         month,
         year,
-        recurringConfig: recurringConfig || null,
+        recurringConfig: recurringConfig || undefined,
       },
       include: {
         milestones: true,
@@ -386,6 +386,7 @@ export const GoalService = {
       where: { id: goalId },
       include: {
         subGoals: true,
+        milestones: true,
       },
     });
 
@@ -394,7 +395,7 @@ export const GoalService = {
     }
 
     // Tính tổng currentValue từ sub-goals
-    const totalCurrentValue = goal.subGoals.reduce((sum, sub) => {
+    const totalCurrentValue = goal.subGoals.reduce((sum: number, sub: any) => {
       return sum + Number(sub.currentValue || 0);
     }, 0);
 
@@ -511,7 +512,7 @@ export const GoalService = {
         where: { goalId: milestone.goalId },
       });
 
-      const allCompleted = allMilestones.every((m) => m.isCompleted);
+      const allCompleted = allMilestones.every((m: any) => m.isCompleted);
       if (allCompleted && allMilestones.length > 0) {
         await prisma.goal.update({
           where: { id: milestone.goalId },
@@ -595,11 +596,11 @@ export const GoalService = {
     const completionRate = totalGoals > 0 ? Math.round((completedGoals / totalGoals) * 100) : 0;
 
     return {
-      byPeriod: goalsByPeriod.reduce((acc, stat) => {
+      byPeriod: goalsByPeriod.reduce((acc: Record<string, number>, stat: any) => {
         acc[stat.periodType] = stat._count.id;
         return acc;
       }, {} as Record<string, number>),
-      byStatus: goalsByStatus.reduce((acc, stat) => {
+      byStatus: goalsByStatus.reduce((acc: Record<string, number>, stat: any) => {
         acc[stat.status] = stat._count.id;
         return acc;
       }, {} as Record<string, number>),
