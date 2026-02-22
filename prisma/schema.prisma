@@ -71,6 +71,45 @@ enum LoanStatus {
   closed // đã tất toán (outstandingAmount = 0)
 }
 
+// GoalPeriodType: chu kỳ mục tiêu
+enum GoalPeriodType {
+  daily   // hàng ngày
+  weekly  // hàng tuần
+  monthly // hàng tháng
+  yearly  // hàng năm
+}
+
+// GoalTrackingType: cách theo dõi mục tiêu
+enum GoalTrackingType {
+  checkbox // có/không (completed/pending)
+  value    // theo giá trị (currentValue/targetValue)
+  progress // theo phần trăm (0-100)
+}
+
+// GoalStatus: trạng thái mục tiêu
+enum GoalStatus {
+  pending     // chờ xử lý
+  in_progress // đang thực hiện
+  completed   // hoàn thành
+  failed      // thất bại
+}
+
+// GoalPriority: độ ưu tiên
+enum GoalPriority {
+  low    // thấp
+  medium // trung bình
+  high   // cao
+}
+
+// GoalCategory: danh mục mục tiêu
+enum GoalCategory {
+  personal  // cá nhân
+  finance   // tài chính
+  health    // sức khỏe
+  education // học tập
+  career    // sự nghiệp
+}
+
 // =========================
 // AUTH MODELS
 // =========================
@@ -115,6 +154,9 @@ model User {
 
   // 1 user có nhiều transaction templates
   transactionTemplates TransactionTemplate[]
+
+  // 1 user có nhiều mục tiêu
+  goals Goal[]
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -510,4 +552,104 @@ model LoanPayment {
   @@index([loanId, paymentDate])
   @@index([userId, paymentDate])
   @@index([walletId])
+}
+
+// =========================
+// GOALS MANAGEMENT
+// =========================
+
+// Goal: mục tiêu cá nhân
+model Goal {
+  id String @id @default(uuid()) // PK
+
+  // FK -> User
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Thông tin cơ bản
+  title       String
+  description String? @db.Text
+
+  // Chu kỳ mục tiêu
+  periodType GoalPeriodType
+
+  // Cách theo dõi
+  trackingType GoalTrackingType @default(checkbox)
+
+  // Cho value/progress tracking
+  targetValue  Decimal? @db.Decimal(18, 2)
+  currentValue Decimal? @default(0) @db.Decimal(18, 2)
+  unit         String?
+
+  // Parent-Child relationship (yearly -> monthly)
+  parentGoalId String?
+  parentGoal   Goal?   @relation("GoalParent", fields: [parentGoalId], references: [id], onDelete: SetNull)
+  subGoals     Goal[]  @relation("GoalParent")
+  // onDelete: SetNull => xóa goal cha thì sub-goals vẫn giữ, parentGoalId = null
+
+  // Tự động tính từ sub-goals
+  autoCalculate Boolean @default(false)
+
+  // Trạng thái và ưu tiên
+  status   GoalStatus   @default(pending)
+  priority GoalPriority @default(medium)
+  category GoalCategory?
+
+  // Date range
+  startDate DateTime?
+  endDate   DateTime?
+  month     Int? // 1-12, cho monthly goals
+  year      Int? // 2024, 2025..., cho monthly/yearly goals
+
+  // Recurring config (JSON) cho daily goals
+  recurringConfig Json?
+
+  // 1 goal có nhiều milestones
+  milestones Milestone[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Index tối ưu query
+  @@index([userId, periodType])
+  @@index([userId, periodType, status])
+  @@index([userId, periodType, year, month])
+  @@index([userId, parentGoalId])
+  @@index([userId, year])
+  @@index([userId, month, year])
+}
+
+// Milestone: các mốc quan trọng của goal
+model Milestone {
+  id String @id @default(uuid()) // PK
+
+  // FK -> Goal
+  goalId String
+  goal   Goal   @relation(fields: [goalId], references: [id], onDelete: Cascade)
+
+  // Thông tin milestone
+  title       String
+  description String? @db.Text
+
+  // Cho value tracking
+  targetValue  Decimal? @db.Decimal(18, 2)
+  currentValue Decimal? @default(0) @db.Decimal(18, 2)
+
+  // Ngày mục tiêu
+  targetDate DateTime?
+
+  // Trạng thái
+  isCompleted Boolean @default(false)
+
+  // Thứ tự hiển thị
+  order Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Index
+  @@index([goalId, order])
+  @@index([goalId, isCompleted])
 }

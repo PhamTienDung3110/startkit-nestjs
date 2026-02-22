@@ -2,6 +2,8 @@ import { Response } from 'express';
 
 /**
  * Error Response Configuration
+ * - status: HTTP status code
+ * - message: Fallback message (English) - FE sẽ dùng code để hiển thị message đã dịch
  */
 export interface ErrorResponse {
   status: number;
@@ -10,15 +12,15 @@ export interface ErrorResponse {
 
 /**
  * Centralized Error Mapping cho tất cả modules
- * Map error message từ service sang HTTP response
+ * Map error code từ service sang HTTP response
+ * 
+ * NOTE: FE sẽ sử dụng error code để hiển thị message đã được dịch
+ * Message ở đây chỉ là fallback cho trường hợp FE không có translation
  */
 export const ErrorMap: Record<string, ErrorResponse> = {
   // Authentication Errors
   EMAIL_EXISTS: { status: 409, message: 'Email already exists' },
-  INVALID_CREDENTIALS: { 
-    status: 401, 
-    message: 'Email or password is incorrect' 
-  },
+  INVALID_CREDENTIALS: { status: 401, message: 'Email or password is incorrect' },
   TOKEN_EXPIRED: { status: 401, message: 'Token expired' },
   TOKEN_INVALID: { status: 401, message: 'Invalid token' },
   UNAUTHORIZED: { status: 401, message: 'Unauthorized' },
@@ -47,8 +49,8 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   INVALID_CATEGORY_TYPE_FOR_INCOME: { status: 400, message: 'Category type must be income for income transactions' },
   INVALID_CATEGORY_TYPE_FOR_EXPENSE: { status: 400, message: 'Category type must be expense for expense transactions' },
   UNSUPPORTED_TRANSACTION_TYPE: { status: 400, message: 'Unsupported transaction type' },
-  SAME_WALLET_TRANSFER: { status: 400, message: 'Ví nguồn và ví đích phải khác nhau' },
-  INSUFFICIENT_WALLET_BALANCE: { status: 400, message: 'Số dư ví không đủ để thực hiện giao dịch' },
+  SAME_WALLET_TRANSFER: { status: 400, message: 'Source and destination wallets must be different' },
+  INSUFFICIENT_WALLET_BALANCE: { status: 400, message: 'Insufficient wallet balance' },
   INSUFFICIENT_BALANCE: { status: 400, message: 'Insufficient balance' },
   TRANSACTION_NOT_FOUND: { status: 404, message: 'Transaction not found' },
 
@@ -59,13 +61,28 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   TEMPLATE_CATEGORY_NOT_FOUND: { status: 404, message: 'Category not found or does not belong to user' },
   TEMPLATE_CATEGORY_TYPE_MISMATCH: { status: 400, message: 'Category type does not match transaction type' },
 
+  // Loan Errors
+  LOAN_NOT_FOUND: { status: 404, message: 'Loan not found' },
+  LOAN_WALLET_NOT_FOUND: { status: 404, message: 'Wallet not found or does not belong to user' },
+  LOAN_ALREADY_SETTLED: { status: 400, message: 'Loan is already settled' },
+  LOAN_PAYMENT_EXCEEDS_REMAINING: { status: 400, message: 'Payment amount exceeds remaining balance' },
+
+  // Goal Errors
+  GOAL_NOT_FOUND: { status: 404, message: 'Goal not found' },
+  GOAL_HAS_SUB_GOALS: { status: 409, message: 'Cannot delete goal with existing sub-goals' },
+  INVALID_PARENT_GOAL_TYPE: { status: 400, message: 'Parent goal must be yearly and current goal must be monthly' },
+  MILESTONE_NOT_FOUND: { status: 404, message: 'Milestone not found' },
+
   // Validation Errors
   VALIDATION_ERROR: { status: 400, message: 'Validation error' },
   INVALID_INPUT: { status: 400, message: 'Invalid input' },
 
   // Database Errors
   DATABASE_ERROR: { status: 500, message: 'Database error' },
-  CONNECTION_ERROR: { status: 500, message: 'Connection error' }
+  CONNECTION_ERROR: { status: 500, message: 'Connection error' },
+
+  // Generic Errors
+  INTERNAL_SERVER_ERROR: { status: 500, message: 'Internal server error' }
 };
 
 /**
@@ -74,13 +91,21 @@ export const ErrorMap: Record<string, ErrorResponse> = {
  * @param res - Express response object
  * @param context - Optional context để logging (tên module/method)
  * @returns Response đã được gửi
+ * 
+ * Response format:
+ * - code: Error code để FE dịch message (ví dụ: "INSUFFICIENT_BALANCE")
+ * - message: Fallback message tiếng Anh
  */
 export function handleError(error: any, res: Response, context?: string): Response {
-  const errorConfig = ErrorMap[error.message];
+  const errorCode = error.message;
+  const errorConfig = ErrorMap[errorCode];
 
   if (errorConfig) {
-    // Known error - return configured response
-    return res.status(errorConfig.status).json({ message: errorConfig.message });
+    // Known error - return code + fallback message
+    return res.status(errorConfig.status).json({ 
+      code: errorCode,
+      message: errorConfig.message 
+    });
   }
 
   // Unknown error - log và return generic 500
@@ -91,7 +116,10 @@ export function handleError(error: any, res: Response, context?: string): Respon
     code: error.code
   });
 
-  return res.status(500).json({ message: 'Internal server error' });
+  return res.status(500).json({ 
+    code: 'INTERNAL_SERVER_ERROR',
+    message: 'Internal server error' 
+  });
 }
 
 /**

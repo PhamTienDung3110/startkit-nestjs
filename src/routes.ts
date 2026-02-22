@@ -19,6 +19,8 @@ import { LoanController } from './modules/loan/loan.controller';
 import { createLoanSchema, updateLoanSchema, createLoanPaymentSchema, getLoansQuerySchema, getLoanPaymentsQuerySchema } from './modules/loan/loan.schema';
 import { TransactionTemplateController } from './modules/transaction-template/transaction-template.controller';
 import { createTemplateSchema, createTemplateFromTransactionSchema, updateTemplateSchema } from './modules/transaction-template/transaction-template.schema';
+import { GoalController } from './modules/goal/goal.controller';
+import { createGoalSchema, updateGoalSchema, createMilestoneSchema, updateMilestoneSchema } from './modules/goal/goal.schema';
 
 // Tạo router instance để định nghĩa các routes
 export const routes = Router();
@@ -79,3 +81,16 @@ routes.get('/transaction-templates', requireAuth, TransactionTemplateController.
 routes.get('/transaction-templates/:id', requireAuth, TransactionTemplateController.getTemplate);
 routes.put('/transaction-templates/:id', requireAuth, validateBody(updateTemplateSchema), TransactionTemplateController.updateTemplate);
 routes.delete('/transaction-templates/:id', requireAuth, TransactionTemplateController.deleteTemplate);
+
+// ========== Goal Routes ==========
+routes.post('/goals', requireAuth, validateBody(createGoalSchema), GoalController.createGoal);
+routes.get('/goals', requireAuth, GoalController.getGoals);
+routes.get('/goals/stats/summary', requireAuth, GoalController.getGoalStats);
+routes.get('/goals/:id', requireAuth, GoalController.getGoal);
+routes.put('/goals/:id', requireAuth, validateBody(updateGoalSchema), GoalController.updateGoal);
+routes.delete('/goals/:id', requireAuth, GoalController.deleteGoal);
+
+// ========== Milestone Routes ==========
+routes.post('/goals/milestones', requireAuth, validateBody(createMilestoneSchema), GoalController.createMilestone);
+routes.put('/goals/milestones/:id', requireAuth, validateBody(updateMilestoneSchema), GoalController.updateMilestone);
+routes.delete('/goals/milestones/:id', requireAuth, GoalController.deleteMilestone);
