@@ -67,7 +67,7 @@ export const updateTemplateSchema = z.object({
 // Schema cho query parameters khi lấy danh sách templates
 export const getTemplatesQuerySchema = z.object({
   type: z.enum(['income', 'expense', 'transfer']).optional(),
-  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(100)).optional(),
+  limit: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(1).max(500)).optional(),
   offset: z.string().regex(/^\d+$/).transform(Number).pipe(z.number().int().min(0)).optional()
 });
 

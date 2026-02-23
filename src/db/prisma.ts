@@ -2,7 +2,7 @@
  * Cấu hình và khởi tạo Prisma Client với MariaDB adapter
  * File này tạo singleton instance của PrismaClient để sử dụng trong toàn bộ ứng dụng
  */
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 
 // Đọc thông tin kết nối database từ environment variables

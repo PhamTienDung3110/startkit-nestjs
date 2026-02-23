@@ -5,7 +5,8 @@
  */
 import { Request, Response } from 'express';
 import { TransactionTemplateService } from './transaction-template.service';
-import { handleError } from '../../utils/error-handler';
+import { handleError, handleValidationError } from '../../utils/error-handler';
+import { getTemplatesQuerySchema } from './transaction-template.schema';
 
 // Create module-specific error handler
 const handleTemplateError = (error: any, res: Response) =>
@@ -143,7 +144,7 @@ export const TransactionTemplateController = {
    *         schema:
    *           type: integer
    *           minimum: 1
-   *           maximum: 100
+   *           maximum: 500
    *           default: 50
    *         description: Số lượng templates trả về
    *       - in: query
@@ -166,10 +167,15 @@ export const TransactionTemplateController = {
         return res.status(401).json({ message: 'Unauthorized' });
       }
 
+      const parsed = getTemplatesQuerySchema.safeParse(req.query);
+      if (!parsed.success) {
+        return handleValidationError(parsed.error, res);
+      }
+
       const result = await TransactionTemplateService.getTemplates(userId, {
-        type: req.query.type as 'income' | 'expense' | 'transfer' | undefined,
-        limit: req.query.limit ? parseInt(req.query.limit as string) : undefined,
-        offset: req.query.offset ? parseInt(req.query.offset as string) : undefined
+        type: parsed.data.type,
+        limit: parsed.data.limit,
+        offset: parsed.data.offset
       });
 
       return res.status(200).json({

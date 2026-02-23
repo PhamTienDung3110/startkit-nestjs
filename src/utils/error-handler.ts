@@ -60,6 +60,7 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   TEMPLATE_WALLET_NOT_FOUND: { status: 404, message: 'Wallet not found or does not belong to user' },
   TEMPLATE_CATEGORY_NOT_FOUND: { status: 404, message: 'Category not found or does not belong to user' },
   TEMPLATE_CATEGORY_TYPE_MISMATCH: { status: 400, message: 'Category type does not match transaction type' },
+  PRISMA_TEMPLATE_MODEL_MISSING: { status: 503, message: 'Prisma client missing TransactionTemplate. Run: npx prisma generate in LE-backend folder' },
 
   // Loan Errors
   LOAN_NOT_FOUND: { status: 404, message: 'Loan not found' },
@@ -80,6 +81,7 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   // Database Errors
   DATABASE_ERROR: { status: 500, message: 'Database error' },
   CONNECTION_ERROR: { status: 500, message: 'Connection error' },
+  P2021: { status: 503, message: 'Table does not exist. Run: npx prisma migrate deploy in LE-backend' },
 
   // Generic Errors
   INTERNAL_SERVER_ERROR: { status: 500, message: 'Internal server error' }
@@ -97,14 +99,14 @@ export const ErrorMap: Record<string, ErrorResponse> = {
  * - message: Fallback message tiếng Anh
  */
 export function handleError(error: any, res: Response, context?: string): Response {
-  const errorCode = error.message;
+  // Prisma errors: error.code (e.g. P2021), service errors: error.message (e.g. TEMPLATE_NOT_FOUND)
+  const errorCode = error?.code ?? error.message;
   const errorConfig = ErrorMap[errorCode];
 
   if (errorConfig) {
-    // Known error - return code + fallback message
-    return res.status(errorConfig.status).json({ 
+    return res.status(errorConfig.status).json({
       code: errorCode,
-      message: errorConfig.message 
+      message: errorConfig.message
     });
   }
 
@@ -116,10 +118,17 @@ export function handleError(error: any, res: Response, context?: string): Respon
     code: error.code
   });
 
-  return res.status(500).json({ 
+  const body: Record<string, string> = {
     code: 'INTERNAL_SERVER_ERROR',
-    message: 'Internal server error' 
-  });
+    message: 'Internal server error'
+  };
+  // Dev: trả thêm chi tiết lỗi để debug (không dùng ở production)
+  if (process.env.NODE_ENV !== 'production' && error?.message) {
+    body.detail = String(error.message);
+    if (error?.stack) body.stack = String(error.stack);
+  }
+
+  return res.status(500).json(body);
 }
 
 /**

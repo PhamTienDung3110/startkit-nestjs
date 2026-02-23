@@ -209,7 +209,7 @@ export const TransactionTemplateService = {
     }
 
     // Lấy danh sách templates
-    const templates = await prisma.transactionTemplate.findMany({
+    const rows = await prisma.transactionTemplate.findMany({
       where,
       include: {
         wallet: true,
@@ -225,6 +225,45 @@ export const TransactionTemplateService = {
 
     // Đếm total
     const total = await prisma.transactionTemplate.count({ where });
+
+    // Chuyển Prisma Decimal sang number an toàn (tránh throw / lỗi serialize)
+    const toNum = (v: unknown): number | null => {
+      if (v == null) return null;
+      if (typeof v === 'number' && !Number.isNaN(v)) return v;
+      try {
+        if (typeof (v as any).toNumber === 'function') return (v as any).toNumber();
+        const n = Number(v);
+        return Number.isNaN(n) ? null : n;
+      } catch {
+        return null;
+      }
+    };
+
+    // Serialize sang plain object, chỉ giữ field cần thiết (tránh lỗi res.json())
+    const templates = rows.map((t) => ({
+      id: t.id,
+      userId: t.userId,
+      name: t.name,
+      type: t.type,
+      walletId: t.walletId,
+      categoryId: t.categoryId,
+      amount: toNum(t.amount),
+      note: t.note,
+      createdAt: t.createdAt,
+      updatedAt: t.updatedAt,
+      wallet: t.wallet
+        ? {
+            id: t.wallet.id,
+            name: t.wallet.name,
+            openingBalance: toNum(t.wallet.openingBalance),
+            currentBalance: toNum(t.wallet.currentBalance),
+            isArchived: t.wallet.isArchived
+          }
+        : null,
+      category: t.category
+        ? { id: t.category.id, name: t.category.name, type: t.category.type }
+        : null
+    }));
 
     return {
       templates,

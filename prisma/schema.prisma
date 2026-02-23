@@ -10,9 +10,7 @@
 // GENERATOR: Tạo Prisma Client
 // =========================
 generator client {
-  provider     = "prisma-client"           // Prisma Client generator (JS/TS)
-  output       = "../src/generated/prisma" // Thư mục output cho Prisma Client generate
-  moduleFormat = "commonjs"                // CommonJS phù hợp NestJS config phổ biến
+  provider = "prisma-client-js" // Generate vào node_modules, đảm bảo có đủ model (kể cả TransactionTemplate)
 }
 
 // =========================
