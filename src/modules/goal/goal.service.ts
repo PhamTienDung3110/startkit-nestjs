@@ -164,6 +164,10 @@ export const GoalService = {
       offset = 0,
     } = filters;
 
+    // req.query luôn là string - chuẩn hóa sang number cho Prisma take/skip
+    const limitNum = typeof limit === 'number' ? limit : Math.min(100, Math.max(1, parseInt(String(limit), 10) || 50));
+    const offsetNum = typeof offset === 'number' ? offset : Math.max(0, parseInt(String(offset), 10) || 0);
+
     // Build where clause
     const where: any = { userId };
 
@@ -215,8 +219,8 @@ export const GoalService = {
         { priority: 'desc' }, // high -> medium -> low
         { createdAt: 'desc' },
       ],
-      take: limit,
-      skip: offset,
+      take: limitNum,
+      skip: offsetNum,
     });
 
     // Đếm total
@@ -226,9 +230,9 @@ export const GoalService = {
       goals,
       pagination: {
         total,
-        limit,
-        offset,
-        hasMore: offset + limit < total,
+        limit: limitNum,
+        offset: offsetNum,
+        hasMore: offsetNum + limitNum < total,
       },
     };
   },
