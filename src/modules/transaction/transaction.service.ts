@@ -10,7 +10,7 @@
  * - Tất cả operations phải atomic (sử dụng DB transaction)
  */
 import { prisma } from '../../db/prisma';
-import { CreateTransactionData } from './transaction.schema';
+import { CreateTransactionData, UpdateTransactionData } from './transaction.schema';
 
 /**
  * Validate wallet ownership and check sufficient balance for debit operations
@@ -250,6 +250,89 @@ async function createTransferTransaction(data: CreateTransactionData & { type: '
   });
 }
 
+async function getMutableTransaction(transactionId: string, userId: string) {
+  const transaction = await prisma.transaction.findFirst({
+    where: {
+      id: transactionId,
+      userId,
+      deletedAt: null
+    },
+    include: {
+      entries: true,
+      loanPayment: {
+        select: { id: true }
+      }
+    }
+  });
+
+  if (!transaction) {
+    throw new Error('TRANSACTION_NOT_FOUND');
+  }
+
+  // Không cho sửa/xóa giao dịch gắn với nghiệp vụ vay nợ.
+  if (transaction.loanId || transaction.loanPayment) {
+    throw new Error('TRANSACTION_LOCKED_BY_LOAN');
+  }
+
+  return transaction;
+}
+
+async function reverseTransactionImpact(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  transaction: Awaited<ReturnType<typeof getMutableTransaction>>
+) {
+  if (transaction.type === 'income') {
+    const inEntry = transaction.entries.find((e) => e.direction === 'in');
+    if (!inEntry) throw new Error('TRANSACTION_INVALID_ENTRIES');
+    await tx.wallet.update({
+      where: { id: inEntry.walletId },
+      data: {
+        currentBalance: {
+          decrement: transaction.amount
+        }
+      }
+    });
+    return;
+  }
+
+  if (transaction.type === 'expense') {
+    const outEntry = transaction.entries.find((e) => e.direction === 'out');
+    if (!outEntry) throw new Error('TRANSACTION_INVALID_ENTRIES');
+    await tx.wallet.update({
+      where: { id: outEntry.walletId },
+      data: {
+        currentBalance: {
+          increment: transaction.amount
+        }
+      }
+    });
+    return;
+  }
+
+  // transfer
+  const outEntry = transaction.entries.find((e) => e.direction === 'out');
+  const inEntry = transaction.entries.find((e) => e.direction === 'in');
+  if (!outEntry || !inEntry) throw new Error('TRANSACTION_INVALID_ENTRIES');
+
+  await tx.wallet.update({
+    where: { id: outEntry.walletId },
+    data: {
+      currentBalance: {
+        increment: transaction.amount
+      }
+    }
+  });
+
+  await tx.wallet.update({
+    where: { id: inEntry.walletId },
+    data: {
+      currentBalance: {
+        decrement: transaction.amount
+      }
+    }
+  });
+}
+
 export const TransactionService = {
   /**
    * Tạo giao dịch mới
@@ -274,6 +357,201 @@ export const TransactionService = {
       default:
         throw new Error('UNSUPPORTED_TRANSACTION_TYPE');
     }
+  },
+
+  /**
+   * Cập nhật giao dịch hiện có.
+   * Nghiệp vụ:
+   * 1) Hoàn tác ảnh hưởng giao dịch cũ lên balance
+   * 2) Áp dụng dữ liệu mới
+   */
+  async updateTransaction(transactionId: string, data: UpdateTransactionData, userId: string) {
+    const existingTransaction = await getMutableTransaction(transactionId, userId);
+
+    // Tránh đổi type trong edit để nghiệp vụ rõ ràng và an toàn.
+    if (existingTransaction.type !== data.type) {
+      throw new Error('TRANSACTION_TYPE_IMMUTABLE');
+    }
+
+    if (data.type === 'income') {
+      await validateWalletOwnership(data.walletId, userId);
+      await validateCategoryOwnership(data.categoryId, userId, 'income');
+    } else if (data.type === 'expense') {
+      await validateWalletOwnership(data.walletId, userId);
+      await validateCategoryOwnership(data.categoryId, userId, 'expense');
+    } else {
+      if (data.fromWalletId === data.toWalletId) {
+        throw new Error('SAME_WALLET_TRANSFER');
+      }
+      await validateWalletOwnership(data.fromWalletId, userId);
+      await validateWalletOwnership(data.toWalletId, userId);
+    }
+
+    return await prisma.$transaction(async (tx) => {
+      await reverseTransactionImpact(tx, existingTransaction);
+
+      if (data.type === 'expense') {
+        const wallet = await tx.wallet.findUnique({
+          where: { id: data.walletId },
+          select: { currentBalance: true }
+        });
+        if (!wallet || wallet.currentBalance.toNumber() < data.amount) {
+          throw new Error('INSUFFICIENT_WALLET_BALANCE');
+        }
+      }
+
+      if (data.type === 'transfer') {
+        const fromWallet = await tx.wallet.findUnique({
+          where: { id: data.fromWalletId },
+          select: { currentBalance: true }
+        });
+        if (!fromWallet || fromWallet.currentBalance.toNumber() < data.amount) {
+          throw new Error('INSUFFICIENT_WALLET_BALANCE');
+        }
+      }
+
+      await tx.transactionEntry.deleteMany({
+        where: { transactionId }
+      });
+
+      if (data.type === 'income') {
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: {
+            transactionDate: data.transactionDate,
+            categoryId: data.categoryId,
+            amount: data.amount,
+            note: data.note
+          }
+        });
+        await tx.transactionEntry.create({
+          data: {
+            transactionId,
+            walletId: data.walletId,
+            direction: 'in',
+            amount: data.amount
+          }
+        });
+        await tx.wallet.update({
+          where: { id: data.walletId },
+          data: {
+            currentBalance: {
+              increment: data.amount
+            }
+          }
+        });
+      } else if (data.type === 'expense') {
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: {
+            transactionDate: data.transactionDate,
+            categoryId: data.categoryId,
+            amount: data.amount,
+            note: data.note
+          }
+        });
+        await tx.transactionEntry.create({
+          data: {
+            transactionId,
+            walletId: data.walletId,
+            direction: 'out',
+            amount: data.amount
+          }
+        });
+        await tx.wallet.update({
+          where: { id: data.walletId },
+          data: {
+            currentBalance: {
+              decrement: data.amount
+            }
+          }
+        });
+      } else {
+        await tx.transaction.update({
+          where: { id: transactionId },
+          data: {
+            transactionDate: data.transactionDate,
+            categoryId: null,
+            amount: data.amount,
+            note: data.note
+          }
+        });
+        await tx.transactionEntry.createMany({
+          data: [
+            {
+              transactionId,
+              walletId: data.fromWalletId,
+              direction: 'out',
+              amount: data.amount
+            },
+            {
+              transactionId,
+              walletId: data.toWalletId,
+              direction: 'in',
+              amount: data.amount
+            }
+          ]
+        });
+        await tx.wallet.update({
+          where: { id: data.fromWalletId },
+          data: {
+            currentBalance: {
+              decrement: data.amount
+            }
+          }
+        });
+        await tx.wallet.update({
+          where: { id: data.toWalletId },
+          data: {
+            currentBalance: {
+              increment: data.amount
+            }
+          }
+        });
+      }
+
+      const updatedTransaction = await tx.transaction.findUnique({
+        where: { id: transactionId },
+        include: {
+          entries: {
+            include: {
+              wallet: true
+            }
+          },
+          category: true
+        }
+      });
+
+      if (!updatedTransaction) {
+        throw new Error('TRANSACTION_NOT_FOUND');
+      }
+
+      return updatedTransaction;
+    });
+  },
+
+  /**
+   * Xóa mềm giao dịch và hoàn tác ảnh hưởng số dư.
+   */
+  async deleteTransaction(transactionId: string, userId: string) {
+    const existingTransaction = await getMutableTransaction(transactionId, userId);
+
+    return await prisma.$transaction(async (tx) => {
+      await reverseTransactionImpact(tx, existingTransaction);
+
+      const deletedTransaction = await tx.transaction.update({
+        where: { id: transactionId },
+        data: {
+          deletedAt: new Date()
+        },
+        include: {
+          entries: true,
+          category: true
+        }
+      });
+
+      return deletedTransaction;
+    });
   },
 
   /**

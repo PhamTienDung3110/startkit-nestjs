@@ -45,8 +45,40 @@ export const createTransactionSchema = z.discriminatedUnion('type', [
   createTransferSchema
 ]);
 
+// Schema cho update transaction (cho phép cập nhật dữ liệu, không đổi type)
+export const updateIncomeSchema = z.object({
+  ...baseTransactionSchema,
+  type: z.literal('income'),
+  walletId: z.string().uuid('walletId phải là UUID hợp lệ'),
+  categoryId: z.string().uuid('categoryId phải là UUID hợp lệ')
+});
+
+export const updateExpenseSchema = z.object({
+  ...baseTransactionSchema,
+  type: z.literal('expense'),
+  walletId: z.string().uuid('walletId phải là UUID hợp lệ'),
+  categoryId: z.string().uuid('categoryId phải là UUID hợp lệ')
+});
+
+export const updateTransferSchema = z.object({
+  ...baseTransactionSchema,
+  type: z.literal('transfer'),
+  fromWalletId: z.string().uuid('fromWalletId phải là UUID hợp lệ'),
+  toWalletId: z.string().uuid('toWalletId phải là UUID hợp lệ')
+});
+
+export const updateTransactionSchema = z.discriminatedUnion('type', [
+  updateIncomeSchema,
+  updateExpenseSchema,
+  updateTransferSchema
+]);
+
 // Type definitions cho TypeScript (sẽ được inferred từ zod schemas)
 export type CreateIncomeData = z.infer<typeof createIncomeSchema>;
 export type CreateExpenseData = z.infer<typeof createExpenseSchema>;
 export type CreateTransferData = z.infer<typeof createTransferSchema>;
 export type CreateTransactionData = z.infer<typeof createTransactionSchema>;
+export type UpdateIncomeData = z.infer<typeof updateIncomeSchema>;
+export type UpdateExpenseData = z.infer<typeof updateExpenseSchema>;
+export type UpdateTransferData = z.infer<typeof updateTransferSchema>;
+export type UpdateTransactionData = z.infer<typeof updateTransactionSchema>;

@@ -10,7 +10,7 @@ import { AuthController } from './modules/auth/auth.controller';
 import { registerSchema, loginSchema, refreshSchema } from './modules/auth/auth.schema';
 import { UsersController } from './modules/users/users.controller';
 import { TransactionController } from './modules/transaction/transaction.controller';
-import { createTransactionSchema } from './modules/transaction/transaction.schema';
+import { createTransactionSchema, updateTransactionSchema } from './modules/transaction/transaction.schema';
 import { WalletController } from './modules/wallet/wallet.controller';
 import { createWalletSchema, updateWalletSchema, getWalletsQuerySchema } from './modules/wallet/wallet.schema';
 import { CategoryController } from './modules/category/category.controller';
@@ -44,6 +44,8 @@ routes.get('/users', requireAuth, requireRole(['ADMIN']), UsersController.list);
 // ========== Transaction Routes ==========
 routes.post('/transactions', requireAuth, validateBody(createTransactionSchema), TransactionController.createTransaction);
 routes.get('/transactions', requireAuth, TransactionController.getTransactions);
+routes.put('/transactions/:id', requireAuth, validateBody(updateTransactionSchema), TransactionController.updateTransaction);
+routes.delete('/transactions/:id', requireAuth, TransactionController.deleteTransaction);
 
 // ========== Wallet Routes ==========
 routes.post('/wallets', requireAuth, validateBody(createWalletSchema), WalletController.createWallet);

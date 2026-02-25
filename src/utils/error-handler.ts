@@ -53,6 +53,9 @@ export const ErrorMap: Record<string, ErrorResponse> = {
   INSUFFICIENT_WALLET_BALANCE: { status: 400, message: 'Insufficient wallet balance' },
   INSUFFICIENT_BALANCE: { status: 400, message: 'Insufficient balance' },
   TRANSACTION_NOT_FOUND: { status: 404, message: 'Transaction not found' },
+  TRANSACTION_TYPE_IMMUTABLE: { status: 400, message: 'Transaction type cannot be changed' },
+  TRANSACTION_LOCKED_BY_LOAN: { status: 400, message: 'Transaction linked to loan cannot be modified' },
+  TRANSACTION_INVALID_ENTRIES: { status: 409, message: 'Transaction entries are invalid' },
 
   // Transaction Template Errors
   TEMPLATE_NAME_EXISTS: { status: 409, message: 'Template name already exists' },

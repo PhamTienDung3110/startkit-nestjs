@@ -140,5 +140,57 @@ export const TransactionController = {
       console.error('Get transactions error:', e);
       return res.status(500).json({ message: 'Internal server error' });
     }
+  },
+
+  /**
+   * Cập nhật giao dịch
+   * PUT /api/transactions/:id
+   */
+  async updateTransaction(req: Request, res: Response) {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const transactionId = req.params.id;
+      if (!transactionId) {
+        return res.status(400).json({ message: 'Transaction ID is required' });
+      }
+
+      const transaction = await TransactionService.updateTransaction(transactionId, req.body, userId);
+      return res.status(200).json({
+        message: 'Transaction updated successfully',
+        transaction
+      });
+    } catch (e: any) {
+      return handleTransactionError(e, res);
+    }
+  },
+
+  /**
+   * Xóa mềm giao dịch
+   * DELETE /api/transactions/:id
+   */
+  async deleteTransaction(req: Request, res: Response) {
+    try {
+      const userId = req.user?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+
+      const transactionId = req.params.id;
+      if (!transactionId) {
+        return res.status(400).json({ message: 'Transaction ID is required' });
+      }
+
+      const transaction = await TransactionService.deleteTransaction(transactionId, userId);
+      return res.status(200).json({
+        message: 'Transaction deleted successfully',
+        transaction
+      });
+    } catch (e: any) {
+      return handleTransactionError(e, res);
+    }
   }
 };
