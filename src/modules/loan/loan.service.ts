@@ -158,7 +158,7 @@ export const LoanService = {
    * @returns Danh sách khoản nợ với pagination
    */
   async getLoans(userId: string, filters: Partial<GetLoansQuery> = {}) {
-    const { kind, status, startDate, endDate } = filters;
+    const { kind, status, startDate, endDate, counterpartyName } = filters;
     const limit = Math.min(100, Math.max(1, Number(filters.limit) || 50));
     const offset = Math.max(0, Number(filters.offset) || 0);
 
@@ -170,6 +170,11 @@ export const LoanService = {
 
     if (kind) where.kind = kind;
     if (status) where.status = status;
+    if (counterpartyName) {
+      where.counterpartyName = {
+        contains: counterpartyName
+      };
+    }
     if (startDate || endDate) {
       where.startDate = {};
       if (startDate) {
